@@ -19,7 +19,7 @@ A lightweight macOS menubar app for voice dictation. Hold a hotkey, speak, relea
 Requires macOS 13+ and the Swift toolchain (included with Xcode or Xcode Command Line Tools).
 
 ```bash
-git clone https://github.com/cjsauer/chris-dictation.git
+git clone https://github.com/cj604/chris-dictation.git
 cd chris-dictation
 scripts/install_app.sh
 open ~/Applications/Chris\ Dictation.app
