@@ -1,4 +1,4 @@
-# Chris Dictation
+# Dictation
 
 A lightweight macOS menubar app for voice dictation. Hold a hotkey, speak, release — your speech is transcribed via OpenAI and pasted into the focused text field (or copied to clipboard).
 
@@ -19,8 +19,8 @@ A lightweight macOS menubar app for voice dictation. Hold a hotkey, speak, relea
 Requires macOS 13+ and the Swift toolchain (included with Xcode or Xcode Command Line Tools).
 
 ```bash
-git clone https://github.com/cj604/chris-dictation.git
-cd chris-dictation
+git clone https://github.com/cj604/dictation.git
+cd dictation
 scripts/install_app.sh
 open ~/Applications/Chris\ Dictation.app
 ```
