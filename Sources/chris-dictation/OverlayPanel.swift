@@ -101,7 +101,7 @@ final class OverlayPanel: NSPanel {
             }
         }
 
-        // 2. Top-left of target app's focused window
+        // 2. Bottom-left of target app's focused window
         if let app = targetApp {
             let appElement = AXUIElementCreateApplication(app.processIdentifier)
             var windowRef: CFTypeRef?
@@ -119,7 +119,8 @@ final class OverlayPanel: NSPanel {
                     AXValueGetValue(sizeVal as! AXValue, .cgSize, &size)
                     if size.width > 0, size.height > 0, let screen = NSScreen.main {
                         let screenH = screen.frame.height
-                        let cocoaY = screenH - pos.y - panelHeight - 12
+                        // Bottom-left: window bottom edge + small margin
+                        let cocoaY = screenH - (pos.y + size.height) + 12
                         let x = pos.x + 12
                         return clampToScreen(x: x, y: cocoaY, width: panelWidth, height: panelHeight)
                     }
@@ -342,29 +343,38 @@ final class WaveformView: NSView {
     }
 
     private func tickRecording(t: CGFloat) {
-        let boosted = min(1.0, pow(currentLevel, 0.5) * 3.5)
+        let boosted = min(1.0, pow(currentLevel, 0.5) * 3.0)
+
+        // Smooth the input level
+        let attackSpeed: CGFloat = 0.25
+        let decaySpeed: CGFloat = 0.06
+        if boosted > barLevels[0] {
+            barLevels[0] += (boosted - barLevels[0]) * attackSpeed
+        } else {
+            barLevels[0] += (boosted - barLevels[0]) * decaySpeed
+        }
+        let smoothLevel = barLevels[0]
+
+        // Traveling wave: scrolls left-to-right, audio level controls amplitude
+        // Two layered waves at different speeds for organic feel
+        let waveSpeed1: CGFloat = 2.5
+        let waveSpeed2: CGFloat = 1.6
+        let barSpacing: CGFloat = 1.2  // phase offset between bars
 
         for i in 0..<barCount {
-            let attackSpeed: CGFloat = [0.85, 0.65, 0.75, 0.6, 0.7][i]
-            let decaySpeed: CGFloat = [0.12, 0.18, 0.14, 0.2, 0.16][i]
+            let pos = CGFloat(i) * barSpacing
+            let wave1 = sin(t * waveSpeed1 + pos) * 0.5 + 0.5
+            let wave2 = sin(t * waveSpeed2 + pos * 0.7 + 0.5) * 0.5 + 0.5
+            let combined = wave1 * 0.65 + wave2 * 0.35
 
-            if boosted > barLevels[i] {
-                barLevels[i] += (boosted - barLevels[i]) * attackSpeed
-            } else {
-                barLevels[i] += (boosted - barLevels[i]) * decaySpeed
-            }
+            // Always some gentle motion even at low levels, bigger motion with voice
+            let baseMotion: CGFloat = 0.12 + combined * 0.15
+            let voiceMotion = smoothLevel * combined * 0.75
+            let target = min(1.0, baseMotion + voiceMotion)
 
-            // Slower oscillation frequencies for smoother feel
-            let freq: CGFloat = [1.8, 2.6, 2.1, 3.0, 1.5][i]
-            let phase: CGFloat = [0, 1.3, 0.7, 2.1, 1.8][i]
-            let wave = sin(t * freq + phase) * 0.5 + 0.5
-
-            let variation = barLevels[i] * wave
-            let noise = CGFloat.random(in: -0.04...0.04) * barLevels[i]
-            let target = max(0.1, variation + barLevels[i] * 0.3 + noise)
-
-            let spring: CGFloat = 0.5
-            let damping: CGFloat = 0.5
+            // Soft spring for fluid motion
+            let spring: CGFloat = 0.18
+            let damping: CGFloat = 0.72
             barVelocities[i] += (target - barHeights[i]) * spring
             barVelocities[i] *= damping
             barHeights[i] += barVelocities[i]

@@ -240,8 +240,10 @@ final class AppController: NSObject, NSApplicationDelegate {
                 lastAudioURL = output.url
                 lastDurationSeconds = output.duration
 
-                // Skip transcription for very short recordings or silence
-                if output.duration < 0.5 || peakLevel < 0.05 {
+                logRuntime("stopRecording duration=\(output.duration) peakLevel=\(peakLevel)")
+
+                // Skip transcription for very short recordings
+                if output.duration < 0.5 {
                     overlay.dismiss()
                     state = .idle
                     return
@@ -292,7 +294,7 @@ final class AppController: NSObject, NSApplicationDelegate {
         // Discard if Whisper just echoed back the prompt (hallucination on near-silence)
         let trimmedTranscript = transcript.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmedTranscript.isEmpty || trimmedTranscript == prompt.trimmingCharacters(in: .whitespacesAndNewlines) {
-            overlay.dismiss()
+            await MainActor.run { overlay.dismiss() }
             state = .idle
             return
         }
@@ -303,11 +305,13 @@ final class AppController: NSObject, NSApplicationDelegate {
         lastTranscript = withSpace
 
         let result = inserter.insert(withSpace, preferredApp: targetApplication)
-        switch result {
-        case .pasted:
-            overlay.dismiss()
-        case .clipboard:
-            overlay.showCopiedToClipboard()
+        await MainActor.run {
+            switch result {
+            case .pasted:
+                overlay.dismiss()
+            case .clipboard:
+                overlay.showCopiedToClipboard()
+            }
         }
         targetApplication = nil
 
@@ -333,6 +337,23 @@ final class AppController: NSObject, NSApplicationDelegate {
         }
         if let configured = config.apiKey, !configured.isEmpty {
             return configured
+        }
+        // Fallback: check local .env file
+        let envPaths = [
+            NSString(string: "~/.config/chris-dictation/.env").expandingTildeInPath,
+        ]
+        for envPath in envPaths {
+            if let fileContents = try? String(contentsOfFile: envPath, encoding: .utf8) {
+                for line in fileContents.split(whereSeparator: \.isNewline) {
+                    let trimmed = line.trimmingCharacters(in: .whitespaces)
+                    if trimmed.hasPrefix("OPENAI_API_KEY=") {
+                        let value = String(trimmed.dropFirst("OPENAI_API_KEY=".count)).trimmingCharacters(in: .whitespacesAndNewlines)
+                        if !value.isEmpty {
+                            return value
+                        }
+                    }
+                }
+            }
         }
         return nil
     }

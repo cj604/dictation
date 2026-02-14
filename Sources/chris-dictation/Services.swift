@@ -200,8 +200,8 @@ final class TextInsertionService {
             Thread.sleep(forTimeInterval: 0.2)
         }
 
-        // Only try paste if there's a focused element that can accept text
-        guard AXIsProcessTrusted(), hasFocusedTextElement() else {
+        // Try paste if accessibility is available
+        guard AXIsProcessTrusted() else {
             return .clipboard
         }
 
