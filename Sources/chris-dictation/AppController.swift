@@ -304,8 +304,10 @@ final class AppController: NSObject, NSApplicationDelegate {
         let withSpace = corrected.hasSuffix(" ") ? corrected : corrected + " "
         lastTranscript = withSpace
 
-        let result = inserter.insert(withSpace, preferredApp: targetApplication)
+        let capturedTarget = targetApplication
+        targetApplication = nil
         await MainActor.run {
+            let result = inserter.insert(withSpace, preferredApp: capturedTarget)
             switch result {
             case .pasted:
                 overlay.dismiss()
@@ -313,7 +315,6 @@ final class AppController: NSObject, NSApplicationDelegate {
                 overlay.showCopiedToClipboard()
             }
         }
-        targetApplication = nil
 
         transcriptLog.append(corrected)
 
